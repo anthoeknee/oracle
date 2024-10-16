@@ -1,5 +1,5 @@
 discord.py
 toml
-redis[hiredis]
 cohere
 openai
+redis

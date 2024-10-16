@@ -62,17 +62,24 @@ class ErrorHandler:
 
 
 class Monitor:
-    def __init__(self, name: str = 'Monitor'):
+    def __init__(self, name: str):
         """Initialize the monitor with a logger and error handler."""
         self.logger = Logger(name)
-        self.error_handler = ErrorHandler(self.logger)
 
     def log_info(self, message: str):
         """Log an info message."""
         self.logger.info(message)
 
-    def log_error(self, exception: Exception):
+    def log_error(self, message: str):
         """Log an error message using the error handler."""
-        self.error_handler.handle_exception(exception)
+        self.logger.error(message)
+
+    def log_warning(self, message: str):
+        """Log a warning message."""
+        self.logger.warning(message)
+
+    def log_debug(self, message: str):
+        """Log a debug message."""
+        self.logger.debug(message)
 
     # Additional monitoring methods can be added here

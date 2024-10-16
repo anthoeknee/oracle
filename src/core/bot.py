@@ -8,11 +8,19 @@ import aiohttp
 
 class Bot(commands.Bot):
     def __init__(self):
-        intents = discord.Intents.all()
-        config = Config()
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.dm_messages = True
+        intents.dm_reactions = True
+        intents.dm_typing = True
+        intents.guild_messages = True
+        intents.guild_reactions = True
+        intents.guild_typing = True
+        self.config = Config()
         super().__init__(
-            command_prefix=config.bot.prefix,
-            intents=intents
+            command_prefix=commands.when_mentioned_or(self.config.bot.prefix),
+            intents=intents,
+            dm_permission=True
         )
         self.monitor = Monitor(__name__)
         self.module_loader = ModuleLoader(self, 'src/modules')
@@ -24,7 +32,7 @@ class Bot(commands.Bot):
             await self.module_loader.load_modules()
             self.monitor.log_info("Modules loaded successfully")
         except Exception as e:
-            self.monitor.log_error(e)
+            self.monitor.log_error(f"Error during setup: {e}")
 
     async def on_ready(self):
         self.monitor.log_info(f'Logged in as {self.user.name} (ID: {self.user.id})')
@@ -35,18 +43,34 @@ class Bot(commands.Bot):
 
     async def close(self):
         self.monitor.log_info("Closing bot and cleaning up...")
-        if self.session and not self.session.closed:
-            await self.session.close()
-        for cog in self.cogs.values():
-            if hasattr(cog, 'cleanup'):
-                await cog.cleanup()
-        await super().close()
+        if not self.is_closed():
+            if self.session:
+                await self.session.close()
+            await super().close()
+        # Add any other cleanup tasks specific to your bot here
+
+    async def start_bot(self):
+        try:
+            await self.start(self.config.bot.token)
+        except KeyboardInterrupt:
+            self.monitor.log_info("Received keyboard interrupt. Shutting down...")
+        except asyncio.CancelledError:
+            self.monitor.log_info("Bot start cancelled. Shutting down...")
+        finally:
+            await self.close()
+
+    async def on_command_error(self, ctx, error):
+        if isinstance(error, commands.CommandNotFound):
+            # Silently ignore CommandNotFound errors
+            return
+        # For other types of errors, you might want to log them
+        self.monitor.log_error(f"An error occurred: {error}")
 
 async def main():
     bot = Bot()
     config = Config()
     try:
-        await bot.start(config.bot.token)
+        await bot.start_bot()
     except KeyboardInterrupt:
         print("Received keyboard interrupt. Shutting down...")
     finally:

@@ -1,6 +1,8 @@
 import toml
 from types import SimpleNamespace
 from src.utils.monitor import Monitor
+from jinja2 import Environment, FileSystemLoader
+import os
 
 class Config:
     _instance = None
@@ -30,6 +32,17 @@ class Config:
 
     def __getattr__(self, item):
         return getattr(self.config, item)
+
+    def get_system_prompt(self):
+        try:
+            template_dir = os.path.join(os.getcwd(), 'data', 'templates')
+            env = Environment(loader=FileSystemLoader(template_dir))
+            template = env.get_template('system_prompt.j2')
+            rendered_prompt = template.render(config=self.config)
+            return rendered_prompt
+        except Exception as e:
+            self.monitor.log_error(f"Error loading system prompt template: {e}")
+            return "You're a helpful assistant."
 
 # Create a single instance of Config
 config = Config()

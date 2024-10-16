@@ -1,5 +1,6 @@
 import os
 import importlib
+import importlib.util
 import inspect
 import logging
 import asyncio
@@ -21,21 +22,51 @@ class ModuleLoader(commands.Cog):
         self.monitor = Monitor(__name__)
 
     async def load_modules(self):
-        """Dynamically load all modules from the specified directory."""
-        for module_name in os.listdir(self.module_dir):
-            if module_name.endswith('.py') and not module_name.startswith('__'):
-                try:
-                    module = importlib.import_module(f'src.modules.{module_name[:-3]}')
-                    setup_func = getattr(module, 'setup', None)
-                    if setup_func and asyncio.iscoroutinefunction(setup_func):
-                        await setup_func(self.bot)
-                    elif setup_func:
-                        setup_func(self.bot)
-                    else:
-                        self.monitor.log_warning(f"Module {module_name} has no setup function, skipping")
-                    self.monitor.log_info(f"Loaded module: {module_name}")
-                except Exception as e:
-                    self.monitor.log_error(f"Failed to load module {module_name}: {str(e)}")
+        """Load all modules in the specified directory."""
+        module_order = ['ai.short_term', 'ai.chat']  # Specify the order of modules to load
+        for module_name in module_order:
+            await self.load_file_module(module_name)
+
+        # Load remaining modules
+        for module_file in os.listdir(self.module_dir):
+            if module_file.endswith('.py') and not module_file.startswith('__'):
+                module_name = module_file[:-3]
+                if module_name not in [m.split('.')[-1] for m in module_order]:
+                    await self.load_file_module(module_name)
+
+    async def load_folder_module(self, folder_name: str):
+        """Load a module from a folder."""
+        try:
+            module = importlib.import_module(f'src.modules.{folder_name}')
+            if hasattr(module, 'setup'):
+                setup_func = getattr(module, 'setup')
+                if asyncio.iscoroutinefunction(setup_func):
+                    await setup_func(self.bot)
+                else:
+                    setup_func(self.bot)
+                self.monitor.log_info(f"Loaded folder module: {folder_name}")
+            else:
+                self.monitor.log_warning(f"Folder module {folder_name} has no setup function, skipping")
+        except ImportError as e:
+            self.monitor.log_error(f"Failed to import folder module {folder_name}: {str(e)}")
+        except Exception as e:
+            self.monitor.log_error(f"Failed to load folder module {folder_name}: {str(e)}")
+
+    async def load_file_module(self, module_name: str):
+        """Load a module from a file."""
+        try:
+            module = importlib.import_module(f'src.modules.{module_name}')
+            setup_func = getattr(module, 'setup', None)
+            if setup_func:
+                if asyncio.iscoroutinefunction(setup_func):
+                    await setup_func(self.bot)
+                else:
+                    setup_func(self.bot)
+                self.monitor.log_info(f"Loaded file module: {module_name}")
+            else:
+                self.monitor.log_warning(f"File module {module_name} has no setup function, skipping")
+        except Exception as e:
+            self.monitor.log_error(f"Failed to load file module {module_name}: {str(e)}")
 
     @commands.Cog.listener()
     async def on_ready(self):

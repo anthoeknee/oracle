@@ -3,7 +3,7 @@ from abc import abstractmethod
 from discord.ext import commands
 
 class BaseModule(commands.Cog):
-    def __init__(self, bot):
+    def __init__(self, bot: commands.Bot):
         self.bot = bot
 
     @abstractmethod
@@ -11,6 +11,6 @@ class BaseModule(commands.Cog):
         """Set up the module."""
         pass
 
-async def setup(bot):
+async def setup(bot: commands.Bot):
     # This is a base class, so we don't need to add it as a cog
     pass
